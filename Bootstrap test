@@ -3,7 +3,8 @@ set.seed(123)
 
 data <- read.csv("IMvigor_tf_response_binary.csv")
 
-# using all TF columns as candidates, response_binary is the outcome
+
+# all TF columns are candidates, response_binary is the outcome
 tf_list <- setdiff(colnames(data), "response_binary")
 
 x_data <- as.matrix(data[, tf_list])
@@ -13,8 +14,6 @@ n_iter <- 200
 selection_matrix <- matrix(0, nrow = n_iter, ncol = length(tf_list))
 colnames(selection_matrix) <- tf_list
 
-
-# bootstrap loop - resample with replacement, run LASSO, check which TFs survive
 for (i in 1:n_iter) {
 
   idx <- sample(1:nrow(x_data), replace = TRUE)
@@ -35,7 +34,10 @@ for (i in 1:n_iter) {
 }
 
 
+
 selection_freq <- colMeans(selection_matrix)
+
+
 selection_freq <- sort(selection_freq, decreasing = TRUE)
 selection_freq
 
@@ -44,6 +46,7 @@ barplot(selection_freq, las = 2, col = "darkblue",
 
 
 
-# TFs selected in more than 80% of bootstrap runs = considered stable
+# keeping only TFs selected in more than 80% of runs
+
 stable_TFs <- names(selection_freq[selection_freq > 0.8])
 stable_TFs
