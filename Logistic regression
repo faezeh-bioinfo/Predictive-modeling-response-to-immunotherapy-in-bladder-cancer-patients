@@ -1,54 +1,48 @@
 library(pROC)
 library(ggplot2)
 
-# Logistic regression model using the 6 candidate TFs identified by LASSO
-# Data: binary immunotherapy response (IMvigor cohort)
 
 data <- read.csv("IMvigor_tf_response_binary.csv")
 
-model_6TF <- glm(
-  response_binary ~ ELK1 + ZNF518B + MSC + TCF7 + ZEB2 + PRDM5,
-  data = data,
-  family = binomial()
-)
+# final model with the 6 TFs from LASSO
+model_6TF <- glm(response_binary ~ ELK1 + ZNF518B + MSC + TCF7 + ZEB2 + PRDM5,
+                  data = data, family = binomial())
+
 
 summary(model_6TF)
 
-# Odds ratios with 95% CI, sorted by p-value
 coef_table <- summary(model_6TF)$coefficients
-
 OR_table <- data.frame(
   TF = rownames(coef_table),
   Beta = coef_table[, 1],
   SE = coef_table[, 2],
   P_value = coef_table[, 4]
 )
-
 OR_table$OR <- exp(OR_table$Beta)
 OR_table$CI_low <- exp(OR_table$Beta - 1.96 * OR_table$SE)
 OR_table$CI_high <- exp(OR_table$Beta + 1.96 * OR_table$SE)
 
+# sort by p-value so most significant TFs show up first
 OR_table <- OR_table[, c("TF", "OR", "CI_low", "CI_high", "P_value")]
 OR_table <- OR_table[order(OR_table$P_value), ]
-
 print(OR_table)
+
 write.csv(OR_table, "6TF_OddsRatio_Table.csv", row.names = FALSE)
 
-# Predicted probabilities and ROC/AUC
-pred_6TF <- predict(model_6TF, type = "response")
 
+# ROC / AUC
+pred_6TF <- predict(model_6TF, type = "response")
 roc_6TF <- roc(response = data$response_binary, predictor = pred_6TF)
 auc(roc_6TF)
 ci.auc(roc_6TF)
 
-# ROC plot
+
 ggroc(roc_6TF, linewidth = 0.5) +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", linewidth = 0.3) +
   annotate("text", x = 0.65, y = 0.15,
            label = paste0("AUC = ", round(auc(roc_6TF), 3)), size = 5) +
-  labs(title = "Logistic Regression Model - 6-TF Signature", x = "1 - Specificity", y = "Sensitivity") +
+  labs(title = "Logistic Regression Model - 6-TF Signature",
+       x = "1 - Specificity", y = "Sensitivity") +
   theme_classic(base_size = 14) +
-  theme(
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    axis.title = element_text(face = "bold")
-  )
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        axis.title = element_text(face = "bold"))
