@@ -1,0 +1,39 @@
+library(pROC)
+set.seed(123)
+
+# repeated random train/test split (Monte Carlo CV) to check how stable
+# the 6-TF model's AUC is, rather than relying on a single train/test split
+
+data <- read.csv("IMvigor_tf_response_binary.csv")
+
+tf_list <- c("ELK1", "ZNF518B", "MSC", "TCF7", "ZEB2", "PRDM5")
+
+n_iter <- 200
+auc_values <- numeric(n_iter)
+
+for (i in 1:n_iter) {
+
+  # 80/20 split, different random split each iteration
+  idx <- sample(1:nrow(data), size = 0.8 * nrow(data))
+  train <- data[idx, ]
+  test  <- data[-idx, ]
+
+  form <- as.formula(paste("response_binary ~", paste(tf_list, collapse = " + ")))
+  model <- glm(form, data = train, family = binomial())
+
+  pred <- predict(model, newdata = test, type = "response")
+  roc_obj <- roc(test$response_binary, pred)
+
+  auc_values[i] <- auc(roc_obj)
+}
+
+mean_auc <- mean(auc_values)
+sd_auc <- sd(auc_values)
+
+mean_auc
+sd_auc
+
+# check how stable the AUC is across all 200 runs
+hist(auc_values, breaks = 20,
+     main = "Repeated CV AUC distribution - 6TF model",
+     xlab = "AUC")
