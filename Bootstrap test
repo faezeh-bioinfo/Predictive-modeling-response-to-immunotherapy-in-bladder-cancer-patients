@@ -1,0 +1,49 @@
+library(glmnet)
+set.seed(123)
+
+data <- read.csv("IMvigor_tf_response_binary.csv")
+
+# using all TF columns as candidates, response_binary is the outcome
+tf_list <- setdiff(colnames(data), "response_binary")
+
+x_data <- as.matrix(data[, tf_list])
+y_data <- as.numeric(data$response_binary) # 0/1
+
+n_iter <- 200
+selection_matrix <- matrix(0, nrow = n_iter, ncol = length(tf_list))
+colnames(selection_matrix) <- tf_list
+
+
+# bootstrap loop - resample with replacement, run LASSO, check which TFs survive
+for (i in 1:n_iter) {
+
+  idx <- sample(1:nrow(x_data), replace = TRUE)
+  x_boot <- x_data[idx, ]
+  y_boot <- y_data[idx]
+
+  cv_fit <- cv.glmnet(x_boot, y_boot, family = "binomial", alpha = 1)
+  best_lambda <- cv_fit$lambda.min
+
+  fit <- glmnet(x_boot, y_boot, family = "binomial", alpha = 1, lambda = best_lambda)
+  coefs <- as.matrix(coef(fit))
+
+  for (tf in tf_list) {
+    if (tf %in% rownames(coefs) && coefs[tf, 1] != 0) {
+      selection_matrix[i, tf] <- 1
+    }
+  }
+}
+
+
+selection_freq <- colMeans(selection_matrix)
+selection_freq <- sort(selection_freq, decreasing = TRUE)
+selection_freq
+
+barplot(selection_freq, las = 2, col = "darkblue",
+        main = "LASSO Bootstrap Selection Frequency", ylab = "Selection probability")
+
+
+
+# TFs selected in more than 80% of bootstrap runs = considered stable
+stable_TFs <- names(selection_freq[selection_freq > 0.8])
+stable_TFs
